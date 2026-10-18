@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Miku Search</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --splash-bg: url('https://via.placeholder.com/400x800/111111/ffffff?text=Splash+Image');
+      --blurred-bg: url('https://via.placeholder.com/400x800/1a1a1a/888888?text=Blurred+BG');
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: #0b0b0e;
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    .app-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bg-custom {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--blurred-bg) no-repeat center center/cover;
+      filter: blur(12px) brightness(0.5);
+      transform: scale(1.1);
+      z-index: 0;
+    }
+
+    .screen {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 75px;
+      display: none;
+      flex-direction: column;
+      padding: 24px 20px;
+      z-index: 1;
+      overflow-y: auto;
+    }
+
+    .screen.active {
+      display: flex !important;
+    }
+
+    /* Заставка 5 секунд */
+    #screen-splash {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 100;
+      background: #000 var(--splash-bg) no-repeat center center/cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .loader-container {
+      width: 100%;
+      max-width: 280px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .loader-bar {
+      width: 0%;
+      height: 100%;
+      background: #ffffff;
+      transition: width 0.05s linear;
+    }
+
+    .top-app-title {
+      font-size: 24px;
+      font-weight: 900;
+      text-align: center;
+      letter-spacing: 1.5px;
+      margin-bottom: 25px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    .grid-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: rgba(25, 25, 32, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      border-radius: 20px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .card:active {
+      transform: scale(0.98);
+      background: rgba(40, 40, 50, 0.8);
+    }
+
+    .card-large {
+      width: 100%;
+      height: 120px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .grid-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .card-square {
+      height: 120px;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #d1d5db;
+    }
+
+    .card-icon {
+      font-size: 24px;
+    }
+
+    .dock-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 75px;
+      background: rgba(14, 14, 20, 0.85);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .dock-item {
+      background: none;
+      border: none;
+      color: #6b7280;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .dock-item.active {
+      color: #ffffff;
+    }
+
+    .dock-icon {
+      font-size: 20px;
+    }
+
+    .screen-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 25px;
+    }
+
+    .btn-back {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .screen-title-top {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .gen-center-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .generated-username {
+      font-size: 36px;
+      font-weight: 900;
+      color: #ffffff;
+      text-align: center;
+      word-break: break-all;
+      letter-spacing: -0.5px;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+    .gen-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .btn-main {
+      width: 100%;
+      height: 52px;
+      border-radius: 14px;
+      border: none;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-main:active {
+      transform: scale(0.98);
+    }
+
+    .btn-dark-solid {
+      background: #272733;
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-dark-subtle {
+      background: rgba(255, 255, 255, 0.06);
+      color: #d1d5db;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-main:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .styles-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .style-card {
+      background: rgba(25, 25, 32, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .style-card.selected {
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(40, 40, 52, 0.8);
+    }
+
+    .style-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .style-name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .style-desc {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .checkmark {
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 800;
+      display: none;
+    }
+
+    .style-card.selected .checkmark {
+      display: block;
+    }
+
+    .favs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .fav-item {
+      background: rgba(25, 25, 32, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .modal-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: flex-end;
+      z-index: 200;
+    }
+
+    .modal-overlay.hidden {
+      display: none !important;
+    }
+
+    .modal-content {
+      width: 100%;
+      background: #15151c;
+      border-radius: 24px 24px 0 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-title {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .btn-modal {
+      width: 100%;
+      height: 48px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-modal.danger {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Заставка на 5 секунд -->
+    <div id="screen-splash" class="screen active" style="z-index: 100; display: flex;">
+      <div class="loader-container">
+        <div class="loader-bar" id="loader-bar"></div>
+      </div>
+    </div>
+
+    <div class="bg-custom"></div>
+
+    <!-- Главная страница -->
+    <div id="screen-main" class="screen">
+      <div class="top-app-title">MIKU SEARCH</div>
+      
+      <div class="grid-container">
+        <button class="card card-large" id="btn-start-gen">
+          <span>Начать поиск</span>
+        </button>
+
+        <div class="grid-row">
+          <button class="card card-square" id="btn-open-styles">
+            <span class="card-icon">🎨</span>
+            <span>Стили</span>
+          </button>
+          <button class="card card-square" id="btn-open-favs">
+            <span class="card-icon">⭐</span>
+            <span>Избранное (<span id="fav-count">0</span>/25)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Стили -->
+    <div id="screen-styles" class="screen">
+      <div class="screen-header">
+        <button class="btn-back" onclick="navTo('screen-main')">← Назад</button>
+        <span class="screen-title-top">Стили</span>
+        <div style="width: 50px;"></div>
+      </div>
+
+      <div class="styles-list">
+        <div class="style-card selected" id="style-classic" onclick="selectStyle('classic')">
+          <div class="style-info">
+            <span class="style-name">1. Классический</span>
+            <span class="style-desc">Идеальные плавные имена (от 6 символов)</span>
+          </div>
+          <span class="checkmark">✓</span>
+        </div>
+
+        <div class="style-card" id="style-cyber" onclick="selectStyle('cyber')">
+          <div class="style-info">
+            <span class="style-name">2. Кибер</span>
+            <span class="style-desc">Премиальные игровые юзернеймы</span>
+          </div>
+          <span class="checkmark">✓</span>
+        </div>
+
+        <div class="style-card" id="style-premium" onclick="selectStyle('premium')">
+          <div class="style-info">
+            <span class="style-name">3. Премиум 👑</span>
+            <span class="style-desc">Эксклюзив 5 символов (За Telegram Stars)</span>
+          </div>
+          <span class="checkmark">✓</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Избранное -->
+    <div id="screen-favs" class="screen">
+      <div class="screen-header">
+        <button class="btn-back" onclick="navTo('screen-main')">← Назад</button>
+        <span class="screen-title-top">Избранное</span>
+        <div style="width: 50px;"></div>
+      </div>
+      <div id="favs-container" class="favs-list"></div>
+    </div>
+
+    <!-- Экран генерации -->
+    <div id="screen-generator" class="screen">
+      <div class="screen-header">
+        <button class="btn-back" onclick="navTo('screen-main')">← Назад</button>
+        <span class="screen-title-top">Генерация</span>
+        <div style="width: 50px;"></div>
+      </div>
+
+      <div class="gen-center-body">
+        <div class="generated-username" id="display-username">@username</div>
+      </div>
+
+      <div class="gen-actions">
+        <button class="btn-main btn-dark-solid" onclick="copyActiveUsername()">
+          📋 Скопировать юзернейм
+        </button>
+        <button class="btn-main btn-dark-subtle" id="btn-gen-again">
+          🔄 Сгенерировать (<span id="attempts-count">5</span>)
+        </button>
+        <button class="btn-main btn-dark-subtle" id="btn-add-fav">
+          ⭐ Добавить в избранное
+        </button>
+      </div>
+    </div>
+
+    <!-- Заработок -->
+    <div id="screen-earning" class="screen">
+      <div class="top-app-title">Заработок</div>
+      <div style="text-align: center; color: #9ca3af; margin-top: 40px;">Раздел в разработке...</div>
+    </div>
+
+    <!-- Профиль -->
+    <div id="screen-profile" class="screen">
+      <div class="top-app-title">Профиль</div>
+      <div style="text-align: center; color: #9ca3af; margin-top: 40px;">Личный кабинет</div>
+    </div>
+
+    <!-- Док-панель -->
+    <div id="dock-bar" class="dock-bar" style="display: none;">
+      <button class="dock-item" onclick="switchTab('screen-earning', this)">
+        <span class="dock-icon">💰</span>
+        <span>Заработок</span>
+      </button>
+      <button class="dock-item active" onclick="switchTab('screen-main', this)">
+        <span class="dock-icon">⚡</span>
+        <span>Генерация</span>
+      </button>
+      <button class="dock-item" onclick="switchTab('screen-profile', this)">
+        <span class="dock-icon">👤</span>
+        <span>Профиль</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Модалка избранного -->
+  <div id="modal-fav-action" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-title" id="modal-fav-name">@username</div>
+      <button class="btn-modal" onclick="copyCurrentFav()">📋 Скопировать юзернейм</button>
+      <button class="btn-modal danger" onclick="removeCurrentFav()">🗑 Удалить из избранного</button>
+      <button class="btn-modal" onclick="closeModal()">Отмена</button>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    let currentStyle = 'classic';
+    let favorites = [];
+    let activeFavSelected = '';
+
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+    // Логика 24-часового сброса попыток
+    function checkAndResetAttempts() {
+      const now = Date.now();
+      let lastReset = localStorage.getItem('miku_last_reset');
+      let attempts = localStorage.getItem('miku_attempts');
+
+      if (!lastReset || !attempts) {
+        localStorage.setItem('miku_last_reset', now);
+        localStorage.setItem('miku_attempts', 5);
+        return 5;
+      }
+
+      // Если прошло больше 24 часов
+      if (now - parseInt(lastReset) >= TWENTY_FOUR_HOURS) {
+        localStorage.setItem('miku_last_reset', now);
+        localStorage.setItem('miku_attempts', 5);
+        return 5;
+      }
+
+      return parseInt(attempts);
+    }
+
+    function getRemainingTime() {
+      const now = Date.now();
+      let lastReset = parseInt(localStorage.getItem('miku_last_reset') || now);
+      const elapsed = now - lastReset;
+      const timeLeft = TWENTY_FOUR_HOURS - elapsed;
+      
+      if (timeLeft <= 0) return 0;
+      return timeLeft;
+    }
+
+    function formatTime(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const hours = Math.floor(totalSecs / 3600);
+      const minutes = Math.floor((totalSecs % 3600) / 60);
+      const seconds = totalSecs % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateAttemptsUI() {
+      const att = checkAndResetAttempts();
+      const btn = document.getElementById('btn-gen-again');
+      const countSpan = document.getElementById('attempts-count');
+
+      if (att > 0) {
+        btn.disabled = false;
+        countSpan.innerText = att;
+      } else {
+        const timeLeft = getRemainingTime();
+        if (timeLeft > 0) {
+          btn.disabled = true;
+          countSpan.innerText = `сброс через ${formatTime(timeLeft)}`;
+        } else {
+          // Время истекло, обновляем
+          checkAndResetAttempts();
+          updateAttemptsUI();
+        }
+      }
+    }
+
+    // Запуск таймера обратного отсчета каждую секунду
+    setInterval(() => {
+      const att = parseInt(localStorage.getItem('miku_attempts') || 5);
+      if (att <= 0) {
+        updateAttemptsUI();
+      }
+    }, 1000);
+
+    // Загрузка заставки на 5 секунд
+    document.addEventListener("DOMContentLoaded", () => {
+      let progress = 0;
+      const loader = document.getElementById('loader-bar');
+      const totalTime = 5000; 
+      const intervalTime = 50;
+      const increment = (intervalTime / totalTime) * 100;
+      
+      const interval = setInterval(() => {
+        progress += increment;
+        if (loader) loader.style.width = progress + '%';
+        
+        if (progress >= 100) {
+          clearInterval(interval);
+          const splash = document.getElementById('screen-splash');
+          splash.style.display = 'none';
+          splash.classList.remove('active');
+          document.getElementById('screen-main').classList.add('active');
+          document.getElementById('dock-bar').style.display = 'flex';
+        }
+      }, intervalTime);
+
+      updateAttemptsUI();
+    });
+
+    function switchTab(screenId, element) {
+      document.querySelectorAll('.screen').forEach(s => {
+        if(s.id !== 'screen-splash') s.classList.remove('active');
+      });
+      document.querySelectorAll('.dock-item').forEach(i => i.classList.remove('active'));
+      
+      document.getElementById(screenId).classList.add('active');
+      if (element) element.classList.add('active');
+    }
+
+    function navTo(screenId) {
+      document.querySelectorAll('.screen').forEach(s => {
+        if(s.id !== 'screen-splash') s.classList.remove('active');
+      });
+      document.getElementById(screenId).classList.add('active');
+    }
+
+    function selectStyle(style) {
+      currentStyle = style;
+      document.querySelectorAll('.style-card').forEach(e => e.classList.remove('selected'));
+      document.getElementById(`style-${style}`).classList.add('selected');
+    }
+
+    document.getElementById('btn-start-gen').addEventListener('click', () => {
+      updateAttemptsUI();
+      navTo('screen-generator');
+      generateUsername();
+    });
+
+    document.getElementById('btn-open-styles').addEventListener('click', () => {
+      navTo('screen-styles');
+    });
+
+    document.getElementById('btn-open-favs').addEventListener('click', () => {
+      renderFavs();
+      navTo('screen-favs');
+    });
+
+    document.getElementById('btn-gen-again').addEventListener('click', () => {
+      let currentAtt = checkAndResetAttempts();
+      if (currentAtt <= 0) {
+        if (tg?.showAlert) tg.showAlert('⚠️ Попытки исчерпаны. Ждите сброса таймера!');
+        return;
+      }
+      
+      currentAtt--;
+      localStorage.setItem('miku_attempts', currentAtt);
+      updateAttemptsUI();
+      generateUsername();
+    });
+
+    async function generateUsername() {
+      const display = document.getElementById('display-username');
+      display.innerText = 'Проверка юза...';
+
+      try {
+        const res = await fetch(`/api/generate?style=${currentStyle}`, {
+          headers: { 'X-Telegram-Init-Data': tg?.initData || '' }
+        });
+        const data = await res.json();
+        display.innerText = '@' + data.username;
+      } catch (e) {
+        display.innerText = '@miku_free';
+      }
+    }
+
+    function copyActiveUsername() {
+      const uname = document.getElementById('display-username').innerText;
+      if (!uname || uname.startsWith('Проверка') || !uname.startsWith('@')) return;
+      navigator.clipboard.writeText(uname);
+      if (tg?.showAlert) tg.showAlert(`📋 Скопировано: ${uname}`);
+      else alert(`📋 Скопировано: ${uname}`);
+    }
+
+    document.getElementById('btn-add-fav').addEventListener('click', () => {
+      const currentUname = document.getElementById('display-username').innerText;
+      
+      if (!currentUname || currentUname.startsWith('Проверка') || !currentUname.startsWith('@')) return;
+
+      if (favorites.length >= 25) {
+        if (tg?.showAlert) tg.showAlert('⚠️ Достигнут лимит в 25 избранных юзернеймов!');
+        return;
+      }
+
+      if (!favorites.includes(currentUname)) {
+        favorites.push(currentUname);
+        document.getElementById('fav-count').innerText = favorites.length;
+        if (tg?.showAlert) tg.showAlert(`⭐ ${currentUname} добавлен в избранное!`);
+      }
+    });
+
+    function renderFavs() {
+      const container = document.getElementById('favs-container');
+      container.innerHTML = '';
+
+      if (favorites.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#9ca3af; margin-top:40px;">Список избранного пуст</div>';
+        return;
+      }
+
+      favorites.forEach(uname => {
+        const item = document.createElement('div');
+        item.className = 'fav-item';
+        item.innerText = uname;
+        item.onclick = () => openFavModal(uname);
+        container.appendChild(item);
+      });
+    }
+
+    function openFavModal(uname) {
+      activeFavSelected = uname;
+      document.getElementById('modal-fav-name').innerText = uname;
+      document.getElementById('modal-fav-action').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-fav-action').classList.add('hidden');
+    }
+
+    function copyCurrentFav() {
+      navigator.clipboard.writeText(activeFavSelected);
+      closeModal();
+      if (tg?.showAlert) tg.showAlert('📋 Скопировано в буфер обмена!');
+    }
+
+    function removeCurrentFav() {
+      favorites = favorites.filter(u => u !== activeFavSelected);
+      document.getElementById('fav-count').innerText = favorites.length;
+      renderFavs();
+      closeModal();
+    }
+  </script>
+</body>
+</html>
